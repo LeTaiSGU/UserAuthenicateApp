@@ -1,0 +1,4 @@
+2025-04-22 12:15:01,297 - [MANUAL LOGIN] Email: duckg208399@gmail.com | IP: 127.0.0.1
+2025-04-22 12:17:50,692 - [MANUAL LOGIN] Email: duckg208399@gmail.com | IP: 127.0.0.1
+2025-04-22 12:47:51,358 - [GOOGLE LOGIN] Email: hieukg880@gmail.com | IP: 127.0.0.1
+2025-04-22 12:49:58,232 - [GOOGLE LOGIN] Email: hieukg880@gmail.com | IP: 127.0.0.1
