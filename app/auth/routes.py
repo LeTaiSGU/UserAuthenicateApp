@@ -6,19 +6,20 @@ from sqlalchemy.orm import Session
 from app import schemas, models, utils, database
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Form
-from app.auth.dependencies import ALGORITHM, SECRET_KEY, get_current_user
+from app.auth.dependencies import ALGORITHM, SECRET_KEY, get_current_user, require_role
 from app import email_utils
 from fastapi import Request
 from urllib.parse import urlencode
 from jose import JWTError, jwt
 from app.auth.google_auth import oauth
 from app.log_utils import log_login
+from fastapi import BackgroundTasks
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=schemas.UserOut)
-def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db), request: Request = None):
+def register_user(user: schemas.UserCreate, background_tasks: BackgroundTasks,db: Session = Depends(database.get_db), request: Request = None):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -37,7 +38,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_d
     <a href="{verify_url}">Xác minh tài khoản</a>
     """
 
-    email_utils.send_email(user.email, "Xác minh tài khoản", html)
+    background_tasks.add_task(email_utils.send_email, user.email, "Xác minh tài khoản", html)
 
     # Trả về thông báo (không trả về user vì chưa có user trong DB)
     return {"msg": "Vui lòng kiểm tra email để xác minh tài khoản."}
@@ -139,12 +140,12 @@ def reset_password(data: schemas.ResetPasswordRequest, db: Session = Depends(dat
     return {"msg": "Mật khẩu đã được cập nhật thành công"}
 
 @router.get("/users", response_model=List[schemas.UserOut])
-def get_users(db: Session = Depends(database.get_db)):
+def get_users(db: Session = Depends(database.get_db), current_user: models.User = Depends(require_role("admin"))):
     users = db.query(models.User).all()
     return users
 
 @router.put("/users/{user_id}", response_model=schemas.UserOut)
-def update_user(user_id: int, user_update: schemas.UserUpdate, db: Session = Depends(database.get_db)):
+def update_user(user_id: int, user_update: schemas.UserUpdate, db: Session = Depends(database.get_db), token: str = Depends(utils.oauth2_scheme)):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
