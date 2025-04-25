@@ -19,7 +19,7 @@ from fastapi import BackgroundTasks
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=schemas.UserOut)
-def register_user(user: schemas.UserCreate, background_tasks: BackgroundTasks,db: Session = Depends(database.get_db), request: Request = None):
+def register_user(user: schemas.UserCreate,db: Session = Depends(database.get_db), request: Request = None):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -38,7 +38,7 @@ def register_user(user: schemas.UserCreate, background_tasks: BackgroundTasks,db
     <a href="{verify_url}">Xác minh tài khoản</a>
     """
 
-    background_tasks.add_task(email_utils.send_email, user.email, "Xác minh tài khoản", html)
+    email_utils.send_email(user.email, "Xác minh tài khoản", html)
 
     # Trả về thông báo (không trả về user vì chưa có user trong DB)
     return {"msg": "Vui lòng kiểm tra email để xác minh tài khoản."}
@@ -90,8 +90,8 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=schemas.UserOut)
-def get_me(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(database.get_db)):
-    if user.role not in ["user", "admin"]:
+def get_me(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    if current_user.role not in ["admin", "user"]:
         raise HTTPException(status_code=403, detail="Permission denied")
     try:
         payload = utils.jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM])
