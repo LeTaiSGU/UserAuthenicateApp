@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app import schemas, models, utils, database
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Form
-from app.auth.dependencies import ALGORITHM, SECRET_KEY, get_current_user, require_role
+from app.auth.dependencies import ALGORITHM, SECRET_KEY, get_current_user, has_role
 from app import email_utils
 from fastapi import Request
 from urllib.parse import urlencode
@@ -91,6 +91,8 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 
 @router.get("/me", response_model=schemas.UserOut)
 def get_me(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(database.get_db)):
+    if user.role not in ["user", "admin"]:
+        raise HTTPException(status_code=403, detail="Permission denied")
     try:
         payload = utils.jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM])
         email = payload.get("sub")
@@ -139,8 +141,8 @@ def reset_password(data: schemas.ResetPasswordRequest, db: Session = Depends(dat
 
     return {"msg": "Mật khẩu đã được cập nhật thành công"}
 
-@router.get("/users", response_model=List[schemas.UserOut])
-def get_users(db: Session = Depends(database.get_db), current_user: models.User = Depends(require_role("admin"))):
+@router.get("/users", response_model=List[schemas.UserOut], dependencies=[Depends(has_role("admin"))])
+def get_users(db: Session = Depends(database.get_db), current_user: models.User = Depends(has_role("admin"))):
     users = db.query(models.User).all()
     return users
 
